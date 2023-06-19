@@ -119,7 +119,7 @@ class HALSpatialNode : public rclcpp::Node {
 			an_packet_free(&out_packet);
 		}
 		std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
-		RCLCPP_INFO(get_logger(), "RTCM - Time difference = %d [ms]", std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count());
+		//RCLCPP_INFO(get_logger(), "RTCM - Time difference = %d [ms]", std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count());
 	}
 
   void feedback_loop(){
@@ -186,11 +186,11 @@ class HALSpatialNode : public rclcpp::Node {
 				default:
 					nav_msg.status.status = nav_msg.status.STATUS_NO_FIX;
 			}
-			RCLCPP_INFO(get_logger(), "Fix type: %d", int(system_packet.filter_status.b.gnss_fix_type));
+			//RCLCPP_INFO(get_logger(), "Fix type: %d", int(system_packet.filter_status.b.gnss_fix_type));
 			nav_msg.status.service = nav_msg.status.SERVICE_GPS | nav_msg.status.SERVICE_GLONASS;
 			nav_msg.header.frame_id = reference_frame;
-			nav_msg.longitude = system_packet.longitude;
-			nav_msg.latitude = system_packet.latitude;
+			nav_msg.longitude = system_packet.longitude/ M_PI * 180.0;
+			nav_msg.latitude = system_packet.latitude/ M_PI * 180.0;
 			nav_msg.altitude = system_packet.height;
 			// covariances in ENU order (ROS2), while SPATIAL order is lat/lon/elev
 			nav_msg.position_covariance[0] = system_packet.standard_deviation[1];
@@ -202,7 +202,7 @@ class HALSpatialNode : public rclcpp::Node {
 
 		an_packet_free(&in_packet);
 		std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
-		RCLCPP_INFO(get_logger(), "Time difference = %d [ms]", std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count());
+		//RCLCPP_INFO(get_logger(), "Time difference = %d [ms]", std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count());
 	}
   }
 };
