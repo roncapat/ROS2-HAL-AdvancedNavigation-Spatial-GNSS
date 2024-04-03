@@ -26,15 +26,16 @@ class HALSpatialNode : public rclcpp::Node {
  public:
 
   HALSpatialNode() : Node("hal_an_spatial") {
-    port = declare_parameter<std::string>("port", "/dev/ttyUSB0");
-    baud = (uint32_t) declare_parameter<int>("baud", 115200);
+  port = declare_parameter<std::string>("port", "/dev/ttyUSB0");
+  baud = (uint32_t) declare_parameter<int>("baud", 115200);
 	gnss_rate = (uint32_t) declare_parameter<int>("gnss_rate", 1);
 	imu_rate = (uint32_t) declare_parameter<int>("imu_rate", 50);
 	imu_topic = declare_parameter<std::string>("publishers.imu_topic", "/imu");
 	mag_topic = declare_parameter<std::string>("publishers.mag_topic", "/mag");
 	nav_topic = declare_parameter<std::string>("publishers.nav_topic", "/gnss");
 	rtcm_topic = declare_parameter<std::string>("publishers.rtcm_topic", "/rtcm");
-	reference_frame = declare_parameter<std::string>("frame_id", "base_link");
+	imu_reference_frame = declare_parameter<std::string>("imu_frame_id", "imu");
+	gps_reference_frame = declare_parameter<std::string>("gps_frame_id", "gps");
 	try {
      ser = std::make_shared<serial::Serial>();
      ser->setPort(port);
@@ -79,9 +80,9 @@ class HALSpatialNode : public rclcpp::Node {
 		an_packet_free(&out_packet);
 	}
 
-    imu_publisher_ = create_publisher<sensor_msgs::msg::Imu>(imu_topic, 1);
-    mag_publisher_ = create_publisher<sensor_msgs::msg::MagneticField>(mag_topic, 1);
-    nav_publisher_ = create_publisher<sensor_msgs::msg::NavSatFix>(nav_topic, 1);
+  imu_publisher_ = create_publisher<sensor_msgs::msg::Imu>(imu_topic, 1);
+  mag_publisher_ = create_publisher<sensor_msgs::msg::MagneticField>(mag_topic, 1);
+  nav_publisher_ = create_publisher<sensor_msgs::msg::NavSatFix>(nav_topic, 1);
 	rtcm_subscription_ = create_subscription<std_msgs::msg::UInt8MultiArray>(rtcm_topic, 10, std::bind(&HALSpatialNode::rtcm_callback, this, _1));
 
 	worker_thread = std::thread([this]{this->feedback_loop();});
@@ -96,16 +97,17 @@ class HALSpatialNode : public rclcpp::Node {
  private:
 	std::thread worker_thread;
  	std::string port;
-	std::string reference_frame;
-    uint32_t baud, imu_rate, gnss_rate;
+	std::string imu_reference_frame;
+	std::string gps_reference_frame;
+  uint32_t baud, imu_rate, gnss_rate;
 	std::shared_ptr<serial::Serial> ser;
 	std::string imu_topic, mag_topic, nav_topic, rtcm_topic;
 	an_decoder_t an_decoder;
 	int bytes_received;
 	bool stop = false;
 
-  	rclcpp::Publisher<sensor_msgs::msg::Imu>::SharedPtr imu_publisher_;
-  	rclcpp::Publisher<sensor_msgs::msg::MagneticField>::SharedPtr mag_publisher_;
+  rclcpp::Publisher<sensor_msgs::msg::Imu>::SharedPtr imu_publisher_;
+  rclcpp::Publisher<sensor_msgs::msg::MagneticField>::SharedPtr mag_publisher_;
 	rclcpp::Publisher<sensor_msgs::msg::NavSatFix>::SharedPtr nav_publisher_;
 	rclcpp::Subscription<std_msgs::msg::UInt8MultiArray>::SharedPtr rtcm_subscription_;
 
@@ -155,7 +157,7 @@ class HALSpatialNode : public rclcpp::Node {
 		}
 
 		if (type == packet_id_raw_sensors){
-			imu_msg.header.frame_id = reference_frame;
+			imu_msg.header.frame_id = imu_reference_frame;
 			imu_msg.angular_velocity.x = sensor_packet.gyroscopes[0];
 			imu_msg.angular_velocity.y = sensor_packet.gyroscopes[1];
 			imu_msg.angular_velocity.z = sensor_packet.gyroscopes[2];
@@ -163,7 +165,7 @@ class HALSpatialNode : public rclcpp::Node {
 			imu_msg.linear_acceleration.y = sensor_packet.accelerometers[1];
 			imu_msg.linear_acceleration.z = sensor_packet.accelerometers[2];
 			imu_publisher_->publish(imu_msg);
-			mag_msg.header.frame_id = reference_frame;
+			mag_msg.header.frame_id = imu_reference_frame;
 			mag_msg.magnetic_field.x = sensor_packet.magnetometers[0];
 			mag_msg.magnetic_field.y = sensor_packet.magnetometers[1];
 			mag_msg.magnetic_field.z = sensor_packet.magnetometers[2];
@@ -188,7 +190,7 @@ class HALSpatialNode : public rclcpp::Node {
 			}
 			//RCLCPP_INFO(get_logger(), "Fix type: %d", int(system_packet.filter_status.b.gnss_fix_type));
 			nav_msg.status.service = nav_msg.status.SERVICE_GPS | nav_msg.status.SERVICE_GLONASS;
-			nav_msg.header.frame_id = reference_frame;
+			nav_msg.header.frame_id = gps_reference_frame;
 			nav_msg.longitude = system_packet.longitude/ M_PI * 180.0;
 			nav_msg.latitude = system_packet.latitude/ M_PI * 180.0;
 			nav_msg.altitude = system_packet.height;
