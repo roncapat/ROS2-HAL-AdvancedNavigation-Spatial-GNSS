@@ -4,8 +4,8 @@ hal_an_spatial:
     baud: 115200
     gnss_rate: 10
     imu_rate: 80
-    imu_frame_id: imu2
-    gps_frame_id: gps
+    imu_frame_id: imu2 # imu module frame id
+    gps_frame_id: gps  # gps antenna frame id
     publishers:
       imu_topic: /imu2/data
       mag_topic: /imu2/magnetic
